@@ -1,0 +1,9 @@
+.env
+__pycache__
+.ssvenv
+.venv
+.ocr_venv
+.easyocrvenv
+log.json
+*.png
+.*venv/
