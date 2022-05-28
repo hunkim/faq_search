@@ -1,7 +1,7 @@
 # faq_search
 
 
-## Performance concenrs
+## Performance concerns
 ### Indexing (3 records)
 * Index with pipeline took: 0.160
 * Index with api call took: 0.072
