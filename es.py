@@ -86,6 +86,50 @@ def create_pipeline(pipeline_id, index_name=DEFAULT_INDEX_NAME):
     res = es.ingest.put_pipeline(id=pipeline_id, body=pipeline)
 
 
+def _get_embedding(text, pipeline_id):
+    """
+    FIXME: This is a hack, since they don't have a pipeline for search,
+           we need create a function to get embedding using simulate
+
+    POST _ingest/pipeline/embedding/_simulate
+    {
+      "docs": [
+        {
+          "_source": {
+            "text_field": "The quick brown fox jumps over the lazy dog."
+          }
+        }
+      ]
+    }
+    """
+    docs = [{"_source": {"text_field": text}}]
+
+    # simulate the pipeline
+    res = es.ingest.simulate(id=pipeline_id, docs=docs)
+
+    # check if res has text_embedding
+    if (
+        "doc" in res["docs"][0]
+        and "_source" in res["docs"][0]["doc"]
+        and "text_embedding" in res["docs"][0]["doc"]["_source"]
+    ):
+        return res["docs"][0]["doc"]["_source"]
+    else:
+        return None
+
+
+def _get_embedding_from_api(sentence):
+    """
+    Get embedding from FastAPI with huggingface
+    """
+
+    headers = {"auth_token": EMB_CLIENT_SECRET}
+    sentences = {"sentences": [sentence]}
+
+    response = requests.post(EMB_API_URL, headers=headers, json=sentences)
+    return response.json()
+
+
 def add_qa(
     login_email, q, a, pipeline_id=DEFAULT_PIPELINE_ID, index_name=DEFAULT_INDEX_NAME
 ):
@@ -108,7 +152,33 @@ def add_qa(
 
     doc["_id"] = res["_id"]
 
-    log.info("Inserted {}".format(doc))
+    log.info("Inserted {}".format(doc["_id"]))
+
+    return doc
+
+
+def add_qa_using_api(login_email, q, a, index_name=DEFAULT_INDEX_NAME):
+    """
+    POST my-data-stream/_doc?pipeline=embedding
+    {
+        "login_email": "hunkim@gmail.com"
+        "text_field": "What is the best way to learn Python?"
+        "answer": "Use Python's built-in online Python tutorial."
+    }
+    """
+    emb = _get_embedding_from_api(q)["embeddings"][0]
+    doc = {
+        "login_email": login_email,
+        "text_field": q,
+        "text_embedding": emb,
+        "answer": a,
+    }
+
+    res = es.index(index=index_name, document=doc)
+
+    doc["_id"] = res["_id"]
+
+    log.info("Inserted {}".format(doc["_id"]))
 
     return doc
 
@@ -158,50 +228,6 @@ def get_qas(login_email, index_name=DEFAULT_INDEX_NAME):
     return res
 
 
-def _get_embedding(text, pipeline_id):
-    """
-    FIXME: This is a hack, since they don't have a pipeline for search, 
-           we need create a function to get embedding using simulate
-
-    POST _ingest/pipeline/embedding/_simulate
-    {
-      "docs": [
-        {
-          "_source": {
-            "text_field": "The quick brown fox jumps over the lazy dog."
-          }
-        }
-      ]
-    }
-    """
-    docs = [{"_source": {"text_field": text}}]
-
-    # simulate the pipeline
-    res = es.ingest.simulate(id=pipeline_id, docs=docs)
-
-    # check if res has text_embedding
-    if (
-        "doc" in res["docs"][0]
-        and "_source" in res["docs"][0]["doc"]
-        and "text_embedding" in res["docs"][0]["doc"]["_source"]
-    ):
-        return res["docs"][0]["doc"]["_source"]
-    else:
-        return None
-
-
-def _get_embedding_from_api(sentence):
-    """
-    Get embedding from FastAPI with huggingface
-    """
-
-    headers = {"auth_token": EMB_CLIENT_SECRET}
-    sentences = {"sentences": [sentence]}
-
-    response = requests.post(EMB_API_URL, headers=headers, json=sentences)
-    return response.json()
-
-
 def search_knn(
     query,
     login_email,
@@ -223,9 +249,13 @@ def search_knn(
     encode_api_end_time = time.time()
 
     # assert query_embedding == query_embedding_from_api
-    log.info("Encode simulate time: {}".format(encode_end_time - encode_start_time))
-    log.info("Encode API      time: {}".format(encode_api_end_time - encode_api_start_time))
-    
+    log.info("Encode simulate took: {:.3f}".format(encode_end_time - encode_start_time))
+    log.info(
+        "Encode API      took: {:.3f}".format(
+            encode_api_end_time - encode_api_start_time
+        )
+    )
+
     filter = []
     assert login_email is not None
 
@@ -285,12 +315,19 @@ if __name__ == "__main__":
 
     # if argument includes "add", add qas
     if len(sys.argv) > 1 and sys.argv[1] == "add":
+        index_start_time = time.time()
         for qa in qas:
-            add_qa(
-                qa["login_email"], qa["q"], qa["a"], pipeline_id="embedding"
-            )  # insert to index
-            # Sleep for a while to reflect the insert
-            time.sleep(5)
+            add_qa(qa["login_email"], qa["q"], qa["a"], pipeline_id="embedding")
+        log.info(
+            "Index with pipeline took: {:.3f}".format(time.time() - index_start_time)
+        )
+
+        index_start_time = time.time()
+        for qa in qas:
+            add_qa_using_api(qa["login_email"], qa["q"], qa["a"])
+        log.info(
+            "Index with api call took: {:.3f}".format(time.time() - index_start_time)
+        )
 
     # get all
     res = _get_all()

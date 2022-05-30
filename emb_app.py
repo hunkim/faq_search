@@ -8,9 +8,7 @@ app = FastAPI(title="FAQ_API", version="0.1.0")
 
 from sentence_transformers import SentenceTransformer
 
-model = SentenceTransformer(
-    "sentence-transformers/bert-base-nli-mean-tokens", device="cpu"
-)
+model = SentenceTransformer("Sung/sentence-transformer-klue")
 
 
 @app.post("/encode")

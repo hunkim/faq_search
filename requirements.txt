@@ -10,3 +10,6 @@ elasticsearch>=8.2.0
 sentence_transformers
 git+https://github.com/hunkim/streamlit-google-oauth
 python-multipart
+sentence-transformers 
+datasets
+eland

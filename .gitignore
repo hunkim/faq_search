@@ -7,3 +7,4 @@ __pycache__
 log.json
 *.png
 .*venv/
+model_output

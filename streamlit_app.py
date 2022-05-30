@@ -40,8 +40,8 @@ def del_qa(id):
 def main(user_id=None, user_email=None):
     st.write(
         f"""
-        ## 🎂 FAQ Vector Search 
-        Just put name questiom and answers, and it will make a vector FAQ search.
+        ## 🔍 FAQ Vector Search 
+        Just put questiom and answers, and we will make a vector FAQ search.
         """
     )
 
@@ -104,7 +104,7 @@ def main(user_id=None, user_email=None):
 
 #  streamlit run app.py --server.runOnSave=true --server.enableCORS=false --server.enableXsrfProtection=false --server.port=6666
 if __name__ == "__main__":
-    st.set_page_config(page_title="FAQ Vector Search", layout="wide")
+    st.set_page_config(page_title="FAQ Vector Search", layout="wide", page_icon="🔍")
 
     login_info = oauth.login(
         client_id=client_id,
@@ -117,4 +117,4 @@ if __name__ == "__main__":
         user_id, user_email = login_info
         main(user_id=user_id, user_email=user_email)
     else:
-        st.write("## 🎂 FAQ Vector Search")
+        st.write("## 🔍 FAQ Vector Search")
